@@ -36,7 +36,7 @@ fork 或仓库后，在 PowerShell 的 `D:\WorkBuddy\switch-tvbox` 目录执行�
 
 ```powershell
 git remote add mine https://github.com/YOUR_ACCOUNT/YOUR_REPOSITORY.git
-git push -u mine codex/switch-tvbox-t0-t1
+git push -u mine codex/switch-tvbox-t0-t1:main
 ```
 
 打开自己仓库的 **Actions → Build Switch TVBox NRO**，等待这次推送触发
