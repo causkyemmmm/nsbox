@@ -8,6 +8,10 @@
 #include "activity/hint_activity.hpp"
 #include "activity/setting_activity.hpp"
 #include "activity/search_activity.hpp"
+#include "activity/tvbox_detail_activity.hpp"
+#include "activity/tvbox_home_activity.hpp"
+#include "activity/tvbox_player_activity.hpp"
+#include "activity/tvbox_search_activity.hpp"
 #include "activity/search_activity_tv.hpp"
 #include "activity/pgc_index_activity.hpp"
 #include "activity/main_activity.hpp"
@@ -108,6 +112,29 @@ void Intent::openMain() {
     auto activity = new MainActivity();
     brls::Application::pushActivity(activity);
 }
+
+// ===== switch-tvbox =====
+void Intent::openTVBoxHome() {
+    brls::Application::pushActivity(new TVBoxHomeActivity());
+}
+
+void Intent::openTVBoxDetail(const tvbox::CmsVod& vod) {
+    brls::Application::pushActivity(new TVBoxDetailActivity(vod));
+}
+
+void Intent::openTVBoxPlayer(
+    const std::string& title,
+    const std::vector<std::pair<std::string, std::string>>& episodes, int index,
+    const tvbox::TVBoxSite& site) {
+    brls::Application::pushActivity(
+        new TVBoxPlayerActivity(title, episodes, index, site),
+        brls::TransitionAnimation::NONE);
+}
+
+void Intent::openTVBoxSearch() {
+    brls::Application::pushActivity(new TVBoxSearchActivity());
+}
+// ========================
 
 void Intent::openGallery(const std::vector<std::string>& data) {
     auto activity = new GalleryActivity(data);

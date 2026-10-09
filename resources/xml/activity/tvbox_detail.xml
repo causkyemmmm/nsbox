@@ -1,0 +1,60 @@
+<brls:AppletFrame
+        headerHidden="true"
+        footerHidden="false">
+    <brls:Box
+            axis="column"
+            width="100%"
+            height="100%"
+            padding="20">
+        <!-- 影片信息区 -->
+        <brls:Box
+                axis="row"
+                height="280">
+            <brls:Image
+                    id="tvbox/detail/pic"
+                    width="200"
+                    height="280"
+                    scalingType="fill"
+                    cornerRadius="6"/>
+            <brls:Box
+                    axis="column"
+                    grow="1"
+                    marginLeft="20">
+                <TextBox
+                        id="tvbox/detail/title"
+                        fontSize="26"
+                        maxRows="2"/>
+                <brls:Label
+                        id="tvbox/detail/meta"
+                        fontSize="16"
+                        textColor="@theme/font/grey"
+                        marginTop="8"/>
+                <TextBox
+                        id="tvbox/detail/desc"
+                        fontSize="15"
+                        maxRows="6"
+                        marginTop="12"/>
+            </brls:Box>
+        </brls:Box>
+        <!-- 线路选择 -->
+        <RecyclingGrid
+                id="tvbox/detail/sources"
+                height="52"
+                marginTop="14"
+                spanCount="8"
+                itemHeight="44"
+                wireframe="false"/>
+        <!-- 选集 -->
+        <brls:Label
+                text="选集"
+                fontSize="18"
+                marginTop="10"
+                marginBottom="6"/>
+        <RecyclingGrid
+                id="tvbox/detail/episodes"
+                grow="1"
+                spanCount="8"
+                itemHeight="46"
+                wireframe="false"/>
+    </brls:Box>
+</brls:AppletFrame>

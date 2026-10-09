@@ -4,9 +4,26 @@
 
 #pragma once
 #include <string>
+#include <utility>
+#include <vector>
+
+#include "tvbox/tvbox_types.hpp"
 
 class Intent {
 public:
+    // ===== switch-tvbox =====
+    // TVBox 主界面（站点/分类/海报网格）
+    static void openTVBoxHome();
+    // 影片详情页
+    static void openTVBoxDetail(const tvbox::CmsVod& vod);
+    // 播放页（剧集列表 + 起始集 + 站点防盗链信息）
+    static void openTVBoxPlayer(const std::string& title,
+                                const std::vector<std::pair<std::string, std::string>>& episodes,
+                                int index, const tvbox::TVBoxSite& site);
+    // TVBox 搜索页
+    static void openTVBoxSearch();
+    // ========================
+
     // 开启各类视频
     static void openAV(const std::string& avid, uint64_t cid = 0, int progress = -1);
     static void openBV(const std::string& bvid, uint64_t cid = 0, int progress = -1);

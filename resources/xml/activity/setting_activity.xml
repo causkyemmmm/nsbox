@@ -274,6 +274,9 @@
                             <brls:BooleanCell
                                     id="setting/network/tls"/>
 
+                            <brls:InputCell
+                                    id="setting/tvbox/source"/>
+
                             <brls:BooleanCell
                                     id="setting/network/proxy"/>
 

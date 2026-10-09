@@ -56,7 +56,7 @@ int main(int argc, char* argv[]) {
     brls::Application::getPlatform()->disableScreenDimming(false);
 
     if (brls::Application::getPlatform()->isApplicationMode()) {
-        Intent::openMain();
+        Intent::openTVBoxHome();  // switch-tvbox: 启动 TVBox 主界面（原 Intent::openMain 保留）
         // Uncomment these lines to debug activities
         //        Intent::openBV("BV1Da411Y7U4");  // 弹幕防遮挡 (横屏)
         //        Intent::openBV("BV1iN4y1m7J3");  // 弹幕防遮挡 (竖屏)

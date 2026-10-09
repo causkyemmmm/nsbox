@@ -1,0 +1,33 @@
+<brls:Box
+        axis="column"
+        width="100%"
+        height="100%"
+        justifyContent="flexEnd">
+    <brls:Box
+            id="tvbox/player/osd"
+            axis="column"
+            width="100%"
+            paddingLeft="30"
+            paddingRight="30"
+            paddingTop="10"
+            paddingBottom="14"
+            background="vertical_linear">
+        <brls:Box
+                axis="row"
+                alignItems="center">
+            <brls:Label
+                    id="tvbox/player/osd/title"
+                    fontSize="18"
+                    grow="1"/>
+            <brls:Label
+                    id="tvbox/player/osd/time"
+                    fontSize="16"
+                    marginLeft="16"/>
+        </brls:Box>
+        <brls:Slider
+                id="tvbox/player/osd/progress"
+                width="100%"
+                height="24"
+                marginTop="4"/>
+    </brls:Box>
+</brls:Box>

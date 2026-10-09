@@ -1,0 +1,16 @@
+<brls:Box
+        axis="column"
+        marginTop="6"
+        marginBottom="8"
+        width="auto"
+        height="auto">
+    <RecyclingGrid
+            paddingLeft="16"
+            paddingRight="16"
+            itemHeight="300"
+            grow="1"
+            preFetchLine="2"
+            spanCount="5"
+            wireframe="false"
+            id="vodgrid/recyclingGrid"/>
+</brls:Box>

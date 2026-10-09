@@ -21,4 +21,8 @@ for PKG in "${PKGS[@]}"; do
 done
 
 cmake -B ${BUILD_DIR} -DCMAKE_BUILD_TYPE=Release -DBUILTIN_NSP=ON -DPLATFORM_SWITCH=ON -DBRLS_UNITY_BUILD=ON -DCMAKE_UNITY_BUILD_BATCH_SIZE=16
-make -C ${BUILD_DIR} wiliwili.nro -j$(nproc)
+make -C ${BUILD_DIR} switch-tvbox.nro -j$(nproc) || make -C ${BUILD_DIR} wiliwili.nro -j$(nproc) || make -C ${BUILD_DIR} -j$(nproc)
+
+if [ -f "${BUILD_DIR}/wiliwili.nro" ] && [ ! -f "${BUILD_DIR}/switch-tvbox.nro" ]; then
+    cp "${BUILD_DIR}/wiliwili.nro" "${BUILD_DIR}/switch-tvbox.nro"
+fi

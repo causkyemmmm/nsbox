@@ -1,0 +1,14 @@
+<brls:Box
+        axis="row"
+        alignItems="center"
+        paddingLeft="16"
+        paddingRight="16"
+        focusable="true"
+        cornerRadius="4"
+        marginBottom="6">
+    <brls:Label
+            id="labelcell/title"
+            fontSize="18"
+            grow="1"
+            verticalAlign="center"/>
+</brls:Box>

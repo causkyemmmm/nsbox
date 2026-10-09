@@ -1,0 +1,8 @@
+<brls:AppletFrame
+        headerHidden="true"
+        footerHidden="true">
+    <TVBoxVideoView
+            id="tvbox/player/video"
+            width="100%"
+            height="100%"/>
+</brls:AppletFrame>

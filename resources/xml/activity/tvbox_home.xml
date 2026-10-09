@@ -1,0 +1,50 @@
+<brls:AppletFrame
+        headerHidden="true"
+        footerHidden="false">
+    <brls:Box
+            axis="column"
+            width="100%"
+            height="100%"
+            paddingTop="8">
+        <!-- 顶栏：站点切换 / 搜索 / 设置 -->
+        <brls:Box
+                axis="row"
+                height="52"
+                paddingLeft="20"
+                paddingRight="20"
+                alignItems="center">
+            <brls:Button
+                    id="tvbox/home/site"
+                    height="44"
+                    paddingLeft="16"
+                    paddingRight="16"/>
+            <brls:Box grow="1"/>
+            <brls:Button
+                    id="tvbox/home/search"
+                    text="🔍 搜索"
+                    height="44"/>
+            <brls:Button
+                    id="tvbox/home/setting"
+                    text="⚙ 设置"
+                    height="44"
+                    marginLeft="10"/>
+        </brls:Box>
+        <!-- 主体：左侧分类 / 右侧海报网格 -->
+        <brls:Box
+                axis="row"
+                grow="1"
+                marginTop="6">
+            <RecyclingGrid
+                    id="tvbox/home/cats"
+                    width="200"
+                    spanCount="1"
+                    itemHeight="46"
+                    paddingLeft="20"
+                    paddingRight="10"
+                    wireframe="false"/>
+            <VodGrid
+                    id="tvbox/home/grid"
+                    grow="1"/>
+        </brls:Box>
+    </brls:Box>
+</brls:AppletFrame>

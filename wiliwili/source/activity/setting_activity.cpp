@@ -13,6 +13,7 @@
 
 #include "bilibili.h"
 #include "activity/setting_activity.hpp"
+#include "tvbox/app_model.hpp"
 #include "activity/search_activity_tv.hpp"
 #include "activity/hint_activity.hpp"
 #include "fragment/setting_network.hpp"
@@ -677,6 +678,24 @@ void SettingActivity::onContentAvailable() {
             ProgramConfig::instance().setProxy(httpProxy);
         },
         "wiliwili/setting/app/network/proxy_hint"_i18n, "wiliwili/setting/app/network/proxy_hint"_i18n, 64);
+
+/// TVBox 数据源配置（换源）
+    {
+        auto sourceUrl = conf.getSettingItem(SettingItem::TVBOX_SOURCE_URL,
+                                             std::string{tvbox::AppModel::DEFAULT_SOURCE});
+        btnTvboxSource->init(
+            "数据源配置（TVBox 配置地址）", sourceUrl,
+            [](const std::string& data) {
+                std::string url = pystring::strip(data);
+                if (url.empty()) return;
+                if (!pystring::startswith(url, "http://") &&
+                    !pystring::startswith(url, "https://"))
+                    url = "http://" + url;
+                ProgramConfig::instance().setSettingItem(SettingItem::TVBOX_SOURCE_URL, url);
+                brls::Application::notify("数据源已更新，返回主页自动生效");
+            },
+            "输入 TVBox 配置地址", "数据源配置", 256);
+    }
 
 /// Hardware decode
 #if defined(PS4) || defined(__PSV__) && defined(BOREALIS_USE_OPENGL)

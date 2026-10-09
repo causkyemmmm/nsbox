@@ -367,6 +367,12 @@ void MPVCore::init() {
     mpvSetOptionString(mpv, "vd-lavc-threads", "4");
     // This should fix random crash, but I don't know why.
     mpvSetOptionString(mpv, "opengl-glfinish", "yes");
+    // switch-tvbox: HLS/m3u8 针对 Switch Tegra X1 硬件与内存安全优化
+    mpvSetOptionString(mpv, "framedrop", "vo");
+    mpvSetOptionString(mpv, "network-timeout", "15");
+    // 限制切片缓存大小，防止连续看剧时内存无限增长触发 OOM
+    mpvSetOptionString(mpv, "demuxer-max-bytes", "32MiB");
+    mpvSetOptionString(mpv, "demuxer-max-back-bytes", "16MiB");
 #elif defined(PS4)
     mpvSetOptionString(mpv, "vd-lavc-threads", "6");
 #elif defined(__PSV__)

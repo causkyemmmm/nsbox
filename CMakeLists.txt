@@ -185,6 +185,8 @@ endif ()
 
 # source cpp
 file(GLOB_RECURSE MAIN_SRC wiliwili/source/*.cpp)
+# switch-tvbox: AES-C 源文件（GLOB 只匹配 *.cpp，需手动追加）
+list(APPEND MAIN_SRC wiliwili/source/tvbox/aes.c)
 if (WIN32)
     configure_file("${CMAKE_SOURCE_DIR}/wiliwili/app_win32.rc.in" "${CMAKE_BINARY_DIR}/app_win32.rc")
     list(APPEND MAIN_SRC ${CMAKE_BINARY_DIR}/app_win32.rc)
@@ -313,12 +315,13 @@ elseif (PLATFORM_SWITCH)
     endif ()
     add_custom_target(${PROJECT_NAME}.nro
         DEPENDS ${PROJECT_NAME}
-        COMMAND ${NX_NACPTOOL_EXE} --create ${PROJECT_NAME} ${PROJECT_AUTHOR} ${APP_VERSION} ${PROJECT_NAME}.nacp
+        COMMAND ${NX_NACPTOOL_EXE} --create "switch-tvbox" ${PROJECT_AUTHOR} ${APP_VERSION} ${PROJECT_NAME}.nacp
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_RESOURCES} ${CMAKE_BINARY_DIR}/resources
         COMMAND ${CMAKE_COMMAND} -E remove -f ${BUILD_FONT_DIR}/*.txt ${BUILD_FONT_DIR}/switch_font.ttf
             ${BUILD_FONT_DIR}/keymap*.ttf
         COMMAND ${NX_ELF2NRO_EXE} ${PROJECT_NAME}.elf ${PROJECT_NAME}.nro --icon=${PROJECT_ICON}
             --nacp=${PROJECT_NAME}.nacp --romfsdir=${CMAKE_BINARY_DIR}/resources
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.nro ${CMAKE_CURRENT_BINARY_DIR}/switch-tvbox.nro
         ALL
     )
 endif ()
@@ -327,3 +330,23 @@ target_include_directories(${PROJECT_NAME} PRIVATE wiliwili/include wiliwili/inc
 target_compile_options(${PROJECT_NAME} PRIVATE -ffunction-sections -fdata-sections -Wunused-variable ${APP_PLATFORM_OPTION})
 target_link_libraries(${PROJECT_NAME} PRIVATE wiliwiliLibExtra borealis lunasvg pystring pdr mongoose z ${APP_PLATFORM_LIB})
 target_link_options(${PROJECT_NAME} PRIVATE ${APP_PLATFORM_LINK_OPTION})
+
+# switch-tvbox: 协议层 CLI 验证器（仅 PC 调试用）
+option(BUILD_TVBOX_CLI "Build tvbox protocol CLI tester" OFF)
+if (BUILD_TVBOX_CLI AND PLATFORM_DESKTOP)
+    add_executable(tvbox_cli
+        tools/tvbox_cli.cpp
+        wiliwili/source/tvbox/config_decoder.cpp
+        wiliwili/source/tvbox/tvbox_source.cpp
+        wiliwili/source/tvbox/maccms_client.cpp
+        wiliwili/source/tvbox/aes.c
+    )
+    target_include_directories(tvbox_cli PRIVATE
+        wiliwili/include
+        wiliwili/source/tvbox
+        library/borealis/library/include
+        library/borealis/library/include/borealis/extern
+    )
+    target_link_libraries(tvbox_cli PRIVATE cpr z)
+    set_target_properties(tvbox_cli PROPERTIES CXX_STANDARD 17)
+endif ()

@@ -148,6 +148,7 @@ std::unordered_map<SettingItem, ProgramOption> ProgramConfig::SETTING_MAP = {
     {SettingItem::DLNA_NAME, {"dlna_name", {}, {}, 0}},
     {SettingItem::PLAYER_ASPECT, {"player_aspect", {"-1", "-2", "-3", "4:3", "16:9"}, {}, 0}},
     {SettingItem::HTTP_PROXY, {"http_proxy", {}, {}, 0}},
+    {SettingItem::TVBOX_SOURCE_URL, {"tvbox_source_url", {}, {}, 0}},
     {SettingItem::DANMAKU_STYLE_FONT, {"danmaku_style_font", {"stroke", "incline", "shadow", "pure"}, {}, 0}},
     {SettingItem::SHORTCUT_REFRESH, {"shortcut_refresh", {}, {}, 0}},
     {SettingItem::SHORTCUT_SEARCH, {"shortcut_search", {}, {}, 0}},
