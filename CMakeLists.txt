@@ -215,6 +215,10 @@ set_source_files_properties(
         wiliwili/source/activity/setting_activity.cpp
         wiliwili/source/activity/dlna_activity.cpp
         PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+# The TVBox parsers contain file-local helpers with overlapping names.
+# Build each file separately so a Unity translation unit cannot merge them.
+file(GLOB TVBOX_CPP "${CMAKE_CURRENT_SOURCE_DIR}/wiliwili/source/tvbox/*.cpp")
+set_source_files_properties(${TVBOX_CPP} PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 
 # building release file
 if (PLATFORM_DESKTOP)
