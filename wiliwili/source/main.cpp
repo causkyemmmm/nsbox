@@ -11,6 +11,7 @@
 
 #include <borealis.hpp>
 
+#include "tvbox/provider_registry.hpp"
 #include "utils/config_helper.hpp"
 #include "utils/activity_helper.hpp"
 #include "view/mpv_core.hpp"
@@ -35,6 +36,9 @@ int main(int argc, char* argv[]) {
 
     // Load cookies and settings
     ProgramConfig::instance().init();
+
+    // Register site providers (T5-T9 接入点)
+    tvbox::registerSiteProviders();
 
     // Init the app and i18n
     if (!brls::Application::init()) {
