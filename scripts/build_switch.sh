@@ -27,5 +27,5 @@ cmake -S "${PROJECT_ROOT}" -B "${BUILD_DIR}" \
     -DBRLS_UNITY_BUILD=ON \
     -DCMAKE_UNITY_BUILD_BATCH_SIZE=16
 
-cmake --build "${BUILD_DIR}" --target switch-tvbox.nro --parallel 2
+cmake --build "${BUILD_DIR}" --target wiliwili.nro --parallel 2
 test -s "${BUILD_DIR}/switch-tvbox.nro"
