@@ -30,12 +30,12 @@ artifact，其中包含：
 
 ## 推送到自己的 GitHub 仓库
 
-当前本地 `origin` 指向上游 `xfangfang/wiliwili`。在自己的账号下建立
-fork 或仓库后，在 PowerShell 的 `D:\WorkBuddy\switch-tvbox` 目录执行，
-将示例地址换成自己的仓库：
+当前本地 `origin` 指向上游 `xfangfang/wiliwili`，`mine` 指向
+`https://github.com/causkyemmmm/nsbox.git`。在新的克隆中，可以从
+PowerShell 的 `D:\WorkBuddy\switch-tvbox` 目录执行：
 
 ```powershell
-git remote add mine https://github.com/YOUR_ACCOUNT/YOUR_REPOSITORY.git
+git remote add mine https://github.com/causkyemmmm/nsbox.git
 git push -u mine codex/switch-tvbox-t0-t1:main
 ```
 
