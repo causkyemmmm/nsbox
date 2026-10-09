@@ -43,8 +43,11 @@ struct CmsVod {
     std::string vodArea;
     std::string vodContent;
     // 详情字段：播放线路与剧集在 detail 阶段填充
+    // 注意：这里保存的是【集名 + 爬虫集ID】，不是可播放地址。
+    // 点击播放时调用 VodProvider::resolvePlayback(flag, episodeId, out) 换取
+    // 真实媒体 URL 与所需标头。见 docs/t2-contract-spec.md 第 4 节。
     std::vector<std::string> playFrom;                // vod_play_from 按 $$$ 拆
-    std::vector<std::vector<std::pair<std::string, std::string>>> episodes;  // 每条线路: [(集名, 播放地址)]
+    std::vector<std::vector<std::pair<std::string, std::string>>> episodes;  // 每条线路: [(集名, 爬虫集ID)]
 };
 
 struct CmsVodPage {

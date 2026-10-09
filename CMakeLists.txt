@@ -349,3 +349,28 @@ if (BUILD_TVBOX_CLI AND PLATFORM_DESKTOP)
     target_link_libraries(tvbox_cli PRIVATE cpr z)
     set_target_properties(tvbox_cli PROPERTIES CXX_STANDARD 17)
 endif ()
+
+# switch-tvbox: 协议层契约测试（C1-C12，见 docs/t2-contract-spec.md 第 6 节）
+# 独立于 NRO 目标，只在 PC 上构建。运行：./build/tvbox_contract_tests
+option(BUILD_TVBOX_TESTS "Build tvbox protocol contract tests" OFF)
+if (BUILD_TVBOX_TESTS AND PLATFORM_DESKTOP)
+    enable_testing()
+    add_executable(tvbox_contract_tests
+        tests/test_contract.cpp
+        wiliwili/source/tvbox/vod_error.cpp
+        wiliwili/source/tvbox/vod_parser.cpp
+        wiliwili/source/tvbox/maccms_client.cpp
+        wiliwili/source/tvbox/maccms_provider.cpp
+        wiliwili/source/tvbox/config_decoder.cpp
+        wiliwili/source/tvbox/aes.c
+    )
+    target_include_directories(tvbox_contract_tests PRIVATE
+        wiliwili/include
+        tests
+        library/borealis/library/include
+        library/borealis/library/include/borealis/extern
+    )
+    target_link_libraries(tvbox_contract_tests PRIVATE cpr z)
+    set_target_properties(tvbox_contract_tests PROPERTIES CXX_STANDARD 17)
+    add_test(NAME tvbox_contract COMMAND tvbox_contract_tests)
+endif ()

@@ -151,3 +151,49 @@ T5–T9 六个 provider 各写一套，集成时必然冲突。
 
 若确需扩展接口，走以下流程：T3 提交申诉 → T2 评估是否影响已冻结签名 →
 在第二批开工**之前**统一决定。T2 合并冻结后不接受破坏性改动。
+## 9. 执行记录（T2 首批交付）
+
+分支 `codex/switch-tvbox-t2`，基于 `6046bfa`。
+
+### 已完成
+
+| 交付物 | 文件 |
+|---|---|
+| 冻结的错误分类 | `wiliwili/include/tvbox/vod_error.hpp` / `source/tvbox/vod_error.cpp` |
+| provider 接口 | `wiliwili/include/tvbox/vod_provider.hpp` |
+| 统一结果解析器 | `wiliwili/include/tvbox/vod_parser.hpp` / `source/tvbox/vod_parser.cpp` |
+| MacCMS 适配器 | `wiliwili/include/tvbox/maccms_provider.hpp` / `source/tvbox/maccms_provider.cpp` |
+| 契约测试 C1-C12 | `tests/test_framework.hpp` / `tests/test_contract.cpp` |
+
+`tvbox_types.hpp` 中 `episodes` 注释已修正为「集名 + 爬虫集ID」。
+
+### 测试命令与结果
+
+```bash
+cmake -B build -DBUILD_TVBOX_TESTS=ON
+ninja -C build tvbox_contract_tests
+./build/tvbox_contract_tests
+```
+
+结果：**12 case(s) run, 0 failed, 0 assertion failure(s)**
+
+`ninja -C build tvbox_cli` 亦通过，现有 Windows 版 CLI 未受影响。
+
+### C12 抓出的真实缺陷（已修复）
+
+首轮运行 C12 失败 4 项断言：`redactSecrets()` 完全失效，Cookie / token /
+access_token 的值原样保留。根因是键名匹配未跳过 JSON 形式下的**闭合引号**
+——`{"Cookie":"..."}` 中 `cookie` 之后紧跟的是 `"` 而非 `:`，导致匹配分支
+永远不进入。
+
+该缺陷若不修，夸克带 Cookie 的场景下凭据会直接进入日志。
+
+### 尚未解决
+
+- `MacCMSProvider` 的联网方法（`getCategories` / `getVodList` / `getDetail` /
+  `search`）目前仍委托给 `MacCMSClient` 并把失败笼统映射为 `NetworkError`。
+  待T4 引入 provider 工厂后，应改为复用 `vod_parser` 直接产出分类错误，
+  以便区分 `HttpStatus` 与 `UnrecognizedFormat`。因涉及改动 `MacCMSClient`，
+  留给 T4 处理。
+- `looksLikeHtmlPage` 依赖 `/player` 与 `.html` 特征判断，属启发式。
+  T5–T7 拿到真实站点规则后需按 T3 资料补充判定条件。
