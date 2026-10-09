@@ -1,0 +1,61 @@
+name: Build Switch TVBox NRO
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: switch-tvbox-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-switch:
+    name: OpenGL NRO
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Check out source and submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Check build script syntax
+        run: bash -n scripts/build_switch.sh
+
+      - name: Build with devkitA64
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/data" \
+            -w /data \
+            devkitpro/devkita64:20251117 \
+            bash /data/scripts/build_switch.sh
+
+      - name: Package this commit's NRO
+        run: |
+          set -euo pipefail
+          source_nro="cmake-build-switch/switch-tvbox.nro"
+          test -s "$source_nro"
+          mkdir -p dist
+          artifact="switch-tvbox-opengl-${GITHUB_SHA:0:12}.nro"
+          cp "$source_nro" "dist/$artifact"
+          (
+            cd dist
+            sha256sum "$artifact" > "$artifact.sha256"
+          )
+          printf 'commit=%s\nimage=%s\nffmpeg=%s\nmpv=%s\n' \
+            "$GITHUB_SHA" \
+            'devkitpro/devkita64:20251117' \
+            'switch-ffmpeg-7.1-1-any.pkg.tar.zst' \
+            'switch-libmpv-0.36.0-3-any.pkg.tar.zst' \
+            > dist/build-info.txt
+
+      - name: Upload NRO and checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: switch-tvbox-opengl-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
