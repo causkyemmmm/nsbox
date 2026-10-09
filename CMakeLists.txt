@@ -313,7 +313,7 @@ elseif (PLATFORM_SWITCH)
     if (USE_DEKO3D)
         gen_dksh("${PROJECT_RESOURCES}/shaders")
     endif ()
-    add_custom_target(${PROJECT_NAME}.nro
+    add_custom_target(${PROJECT_NAME}.nro ALL
         DEPENDS ${PROJECT_NAME}
         COMMAND ${NX_NACPTOOL_EXE} --create "switch-tvbox" ${PROJECT_AUTHOR} ${APP_VERSION} ${PROJECT_NAME}.nacp
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_RESOURCES} ${CMAKE_BINARY_DIR}/resources
@@ -322,7 +322,6 @@ elseif (PLATFORM_SWITCH)
         COMMAND ${NX_ELF2NRO_EXE} ${PROJECT_NAME}.elf ${PROJECT_NAME}.nro --icon=${PROJECT_ICON}
             --nacp=${PROJECT_NAME}.nacp --romfsdir=${CMAKE_BINARY_DIR}/resources
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.nro ${CMAKE_CURRENT_BINARY_DIR}/switch-tvbox.nro
-        ALL
     )
 endif ()
 
