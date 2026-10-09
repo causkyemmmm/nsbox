@@ -15,7 +15,7 @@ struct TVBoxSite {
     std::string key;
     std::string name;
     std::string api;        // type 0/1 时为 MacCMS 接口地址
-    int type = -1;          // 0=xml 1=json(MacCMS) 3=spider(jar/js) 4=...
+    int type = -1;          // 0=xml 1=json(MacCMS) 3=spider 1000=N1 bridge
     int searchable = 1;
     int quickSearch = 1;
     int filterable = 1;

@@ -1,0 +1,11 @@
+{
+  "sites": [
+    {
+      "key": "example_cms",
+      "name": "Example CMS",
+      "type": 1,
+      "api": "https://example.com/api.php/provide/vod",
+      "user_agent": "Mozilla/5.0"
+    }
+  ]
+}

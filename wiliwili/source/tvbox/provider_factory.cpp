@@ -7,6 +7,8 @@
 #include <cctype>
 #include <map>
 
+#include "tvbox/bridge_provider.hpp"
+
 namespace tvbox {
 
 namespace {
@@ -59,6 +61,10 @@ bool ProviderFactory::registerProvider(const std::string& key, FactoryFn fn) {
 bool ProviderFactory::isAdaptedType(const TVBoxSite& site) {
     // MacCMS type 0/1 原生支持
     if (site.isCms()) return true;
+    // type 1000 is served by the N1 bridge; keep the existing Switch UI.
+    if (site.type == 1000 &&
+        (site.api.rfind("http://", 0) == 0 || site.api.rfind("https://", 0) == 0))
+        return true;
     // type 3 需已注册对应 provider
     if (site.type == 3) {
         const auto& map = pfRegistry();
@@ -85,6 +91,8 @@ std::string ProviderFactory::supportLabel(const TVBoxSite& site) {
 
 std::unique_ptr<VodProvider> ProviderFactory::create(const TVBoxSite& site) {
     if (site.isCms()) return std::make_unique<MacCMSProvider>(site);
+    if (site.type == 1000 && isAdaptedType(site))
+        return std::make_unique<BridgeProvider>(site);
 
     if (site.type == 3) {
         auto& map = pfRegistry();

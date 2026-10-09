@@ -1,0 +1,18 @@
+{
+  "sites": [
+    {
+      "key": "source_132",
+      "name": "🍀┃非凡┃资源·二月红接口",
+      "type": 1,
+      "api": "http://ffzy5.tv/api.php/provide/vod",
+      "user_agent": "okhttp/3.15"
+    },
+    {
+      "key": "source_148",
+      "name": "🦚360┃采集·荐片",
+      "type": 1,
+      "api": "https://360zy.com/api.php/provide/vod?",
+      "user_agent": "okhttp/3.15"
+    }
+  ]
+}
