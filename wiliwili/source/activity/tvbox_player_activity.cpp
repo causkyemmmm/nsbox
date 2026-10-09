@@ -6,6 +6,8 @@
 #include <cctype>
 
 #include "tvbox/app_model.hpp"
+#include "tvbox/mpv_request.hpp"
+#include "tvbox/provider_factory.hpp"
 #include "utils/config_helper.hpp"
 #include "view/label_cell.hpp"
 #include "view/mpv_core.hpp"
@@ -42,8 +44,12 @@ std::string fallbackSearchTerm(const std::string& title) {
 
 TVBoxPlayerActivity::TVBoxPlayerActivity(
     std::string title, std::vector<std::pair<std::string, std::string>> eps, int index,
-    tvbox::TVBoxSite site)
-    : vodTitle(std::move(title)), episodes(std::move(eps)), current(index), site(std::move(site)) {}
+    tvbox::TVBoxSite site, std::vector<std::string> lines)
+    : vodTitle(std::move(title)),
+      episodes(std::move(eps)),
+      current(index),
+      sourceNames(std::move(lines)),
+      site(std::move(site)) {}
 
 TVBoxPlayerActivity::~TVBoxPlayerActivity() {
     alive->store(false);
@@ -135,28 +141,78 @@ void TVBoxPlayerActivity::playIndex(int index, bool allowFallback) {
     current = index;
     MPVCore::AUTO_PLAY = true;  // 用户已明确点选剧集，不受 B 站详情页自动播放设置影响
 
-    // 防盗链：透传站点 UA / Referer
-    std::string extra = "network-timeout=10";
-    const std::string userAgent = site.userAgent.empty()
-                                      ? "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-                                      : site.userAgent;
-    extra += ",user-agent=\"" + userAgent + "\"";
-    if (!site.referer.empty()) extra += ",referrer=\"" + site.referer + "\"";
-    const std::string proxy = ProgramConfig::instance().getProxy();
-    if (!proxy.empty()) extra += ",http-proxy=\"" + proxy + "\"";
+    const std::string episodeId = episodes[index].second;
+    const std::string episodeName = episodes[index].first;
+    const std::string flag = currentSource < (int)sourceNames.size() ? sourceNames[currentSource]
+                                                                    : std::string();
+    // 播放目标站点：备用播放时 site 已被替换为找到的站点，
+    // 因此 provider 必须按 site 创建，不能用 AppModel 当前的 provider。
+    const tvbox::TVBoxSite targetSite = site;
+    std::weak_ptr<std::atomic_bool> lifetime = alive;
 
-    videoView->setStatusText(vodTitle + "  " + episodes[index].first + "  ·  正在加载…");
-    MPVCore::instance().setUrl(episodes[index].second, extra);
-    MPVCore::instance().showOsdText(vodTitle + " " + episodes[index].first, 3000);
+    brls::async([this, episodeId, episodeName, flag, targetSite, lifetime]() {
+        std::unique_ptr<tvbox::VodProvider> owned;
+        tvbox::VodProvider* provider = nullptr;
+        // 与当前 AppModel 站点一致时复用实例，否则按目标站点创建
+        auto& model = tvbox::AppModel::instance();
+        if (model.provider() != nullptr && model.currentSite().api == targetSite.api)
+            provider = model.provider();
+        else {
+            owned = tvbox::ProviderFactory::create(targetSite);
+            provider = owned.get();
+        }
+
+        tvbox::PlaybackRequest request;
+        std::string err;
+        if (provider == nullptr) {
+            err = "站点尚未适配";
+        } else if (!provider->resolvePlayback(flag, episodeId, request)) {
+            err = provider->lastError();
+        }
+        brls::sync([this, request = std::move(request), err, episodeName, targetSite, lifetime,
+                    generation = playbackGeneration]() {
+            auto live = lifetime.lock();
+            if (!live || !live->load() || generation != playbackGeneration) return;
+
+            // 解析失败：不得把网页 URL 交给 mpv，必须显式报错
+            if (!err.empty()) {
+                brls::Logger::warning("TVBox: resolvePlayback failed: {}", err);
+                videoView->setStatusText("无法解析播放地址");
+                brls::Application::notify("解析失败：" + err);
+                return;
+            }
+
+            // T8：把 PlaybackRequest 转成 mpv extra（标头在此生效）
+            const std::string proxy = ProgramConfig::instance().getProxy();
+            tvbox::MpvRequestOptions options = tvbox::toMpvOptions(request, proxy, 10);
+            if (!options.valid) {
+                brls::Logger::warning("TVBox: rejected url: {}", options.describe);
+                videoView->setStatusText("播放地址无效");
+                brls::Application::notify("播放地址无效，已阻止加载");
+                return;
+            }
+            brls::Logger::info("TVBox: load {} ({})", options.describe, options.extra);
+
+            videoView->setStatusText(targetSite.name + "  " + episodeName + "  ·  正在加载…");
+            MPVCore::instance().setUrl(request.url, options.extra);
+            MPVCore::instance().showOsdText(targetSite.name + " " + episodeName, 3000);
+        });
+    });
 }
 
 bool TVBoxPlayerActivity::tryFallback() {
     if (fallbackAttempted || !tvbox::AppModel::instance().ready()) return false;
     fallbackAttempted = true;
 
+    // 备用播放同样必须经 provider 工厂与 resolvePlayback，
+    // 不得再直接实例化 MacCMSClient。
+    auto& model = tvbox::AppModel::instance();
     std::vector<tvbox::TVBoxSite> alternatives;
-    for (const auto& candidate : tvbox::AppModel::instance().sites())
-        if (candidate.api != site.api) alternatives.push_back(candidate);
+    for (const auto& entry : model.sites()) {
+        // 仅考虑已适配的站点
+        if (entry.support != tvbox::SupportState::Supported) continue;
+        if (entry.site.api != site.api) alternatives.push_back(entry.site);
+    }
     if (alternatives.empty()) return false;
 
     videoView->setStatusText("当前片源无法播放，正在查找其他站点…");
@@ -176,11 +232,17 @@ bool TVBoxPlayerActivity::tryFallback() {
         brls::Logger::info("TVBox fallback: title={}, normalized={}, episode={}, search={}",
                            title, wantedTitle, episodeName, searchTerm);
         for (const auto& candidate : alternatives) {
-            tvbox::MacCMSClient client(candidate);
+            // 备用播放同样走 provider 工厂，保证标头与解析逻辑一致
+            std::unique_ptr<tvbox::VodProvider> provider =
+                tvbox::ProviderFactory::create(candidate);
+            if (provider == nullptr) {
+                brls::Logger::warning("TVBox fallback: {} has no provider", candidate.name);
+                continue;
+            }
             tvbox::CmsVodPage page;
-            if (!client.search(searchTerm, 1, page)) {
+            if (!provider->search(searchTerm, 1, page)) {
                 brls::Logger::warning("TVBox fallback: {} search failed: {}", candidate.name,
-                                      client.lastError());
+                                      provider->lastError());
                 continue;
             }
             brls::Logger::info("TVBox fallback: {} returned {} matches", candidate.name,
@@ -189,9 +251,9 @@ bool TVBoxPlayerActivity::tryFallback() {
                 brls::Logger::info("TVBox fallback: candidate {} / {}", result.vodName,
                                    comparableTitle(result.vodName));
                 if (comparableTitle(result.vodName) != wantedTitle) continue;
-                if (!client.getDetail(result.vodId, foundVod)) {
+                if (!provider->getDetail(result.vodId, foundVod)) {
                     brls::Logger::warning("TVBox fallback: {} detail failed: {}", candidate.name,
-                                          client.lastError());
+                                          provider->lastError());
                     continue;
                 }
                 for (const auto& line : foundVod.episodes) {
@@ -223,6 +285,8 @@ bool TVBoxPlayerActivity::tryFallback() {
             }
             site = std::move(foundSite);
             episodes = std::move(foundLine);
+            // 备用站点的线路名与线路数可能不同，重置并清空线路名
+            currentSource = 0;
             brls::Application::notify("已切换到 " + site.name + " 站点播放");
             playIndex(foundEpisode, false);
         });

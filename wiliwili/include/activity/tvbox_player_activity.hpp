@@ -17,7 +17,8 @@ class TVBoxPlayerActivity : public brls::Activity {
 public:
     TVBoxPlayerActivity(std::string title,
                         std::vector<std::pair<std::string, std::string>> episodes,
-                        int index, tvbox::TVBoxSite site);
+                        int index, tvbox::TVBoxSite site,
+                        std::vector<std::string> sourceNames = {});
 
     ~TVBoxPlayerActivity() override;
 
@@ -35,6 +36,9 @@ private:
     std::string vodTitle;
     std::vector<std::pair<std::string, std::string>> episodes;
     int current = 0;
+    // 线路名。resolvePlayback(flag, episodeId) 需要 flag 才能定位正确解析器。
+    std::vector<std::string> sourceNames;
+    int currentSource = 0;
     tvbox::TVBoxSite site;
     brls::Event<MpvEventEnum>::Subscription eventSub;
     bool subscribed = false;

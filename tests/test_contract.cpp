@@ -7,6 +7,8 @@
 #include "test_framework.hpp"
 
 #include "tvbox/maccms_provider.hpp"
+#include "tvbox/mpv_request.hpp"
+#include "tvbox/provider_factory.hpp"
 #include "tvbox/vod_error.hpp"
 #include "tvbox/vod_parser.hpp"
 #include "tvbox/vod_provider.hpp"
@@ -312,6 +314,184 @@ TEST_CONTRACT(C12, "异常结构显式报错且日志脱敏") {
     CHECK(!err.ok());
     CHECK(err);  // 有错误时 operator bool 应为 true
     CHECK(!Error(ErrorCode::Ok));  // Ok 时为 false
+}
+
+// ---------------------------------------------------------------- C13
+// T4：provider 工厂的支持性判定
+// type 3 仅在已注册对应 provider 时可选；未适配站点必须能被明确区分
+TEST_CONTRACT(C13, "provider 工厂按注册情况判定支持性") {
+    using tvbox::ProviderFactory;
+    using tvbox::SupportState;
+    using tvbox::TVBoxSite;
+
+    // type 0/1 MacCMS -> 原生支持
+    TVBoxSite cms;
+    cms.key = "cms";
+    cms.name = "MacCMS 站";
+    cms.type = 1;
+    cms.api = "https://example.com/api.php/provide/vod/";
+    CHECK_CODE(static_cast<int>(ProviderFactory::supportOf(cms)),
+               static_cast<int>(SupportState::Supported));
+    CHECK(ProviderFactory::create(cms) != nullptr);
+
+    // type 3 且无已注册 provider -> 尚未适配
+    TVBoxSite spider;
+    spider.key = "spider1";
+    spider.name = "某爬虫站";
+    spider.type = 3;
+    spider.api = "csp_LibVio";
+    CHECK_CODE(static_cast<int>(ProviderFactory::supportOf(spider)),
+               static_cast<int>(SupportState::Unsupported));
+    CHECK_MSG(ProviderFactory::create(spider) == nullptr,
+              "未注册 provider 时不应创建出实例");
+    // 必须能给出明确的未适配说明，而不是静默失败
+    CHECK_MSG(!ProviderFactory::supportLabel(spider).empty(),
+              "未适配站点缺少说明文本");
+    CHECK_MSG(ProviderFactory::supportLabel(spider).find("尚未适配") !=
+                  std::string::npos,
+              "说明文本未标明尚未适配: " + ProviderFactory::supportLabel(spider));
+    CHECK_MSG(ProviderFactory::supportLabel(cms).empty(),
+              "已适配站点不应带未适配说明");
+
+    // 注册一个 provider 后，对应 type 3 站点变为可选
+    auto fakeFactory = [](const TVBoxSite&) -> std::unique_ptr<tvbox::VodProvider> {
+        return nullptr;
+    };
+    // 重复注册同一 key 应失败
+    CHECK(!ProviderFactory::registerProvider("", fakeFactory));
+    CHECK(!ProviderFactory::registerProvider("key", nullptr));
+
+    // 用真实可创建的 provider 做注册验证
+    CHECK(ProviderFactory::registerProvider(
+        "spider1", [](const TVBoxSite& s) -> std::unique_ptr<tvbox::VodProvider> {
+            return std::make_unique<MacCMSProvider>(s);
+        }));
+    // 重复注册同一 key 必须失败，避免覆盖已有实现
+    CHECK(!ProviderFactory::registerProvider(
+        "spider1", [](const TVBoxSite& s) -> std::unique_ptr<tvbox::VodProvider> {
+            return std::make_unique<MacCMSProvider>(s);
+        }));
+
+    // 注册后 isAdaptedType 应能反映注册情况
+    CHECK_CODE(static_cast<int>(ProviderFactory::supportOf(spider)),
+               static_cast<int>(SupportState::Supported));
+
+    // 另一个未注册的 type 3 站点仍应保持未适配
+    TVBoxSite other;
+    other.key = "spider_other";
+    other.name = "另一个爬虫站";
+    other.type = 3;
+    other.api = "csp_Other";
+    CHECK_CODE(static_cast<int>(ProviderFactory::supportOf(other)),
+               static_cast<int>(SupportState::Unsupported));
+    CHECK(ProviderFactory::create(other) == nullptr);
+}
+
+// ---------------------------------------------------------------- C14
+// T8：PlaybackRequest -> mpv extra 转换
+// 关键：自定义标头必须走 http-header-fields，否则 HLS 分片不会携带
+TEST_CONTRACT(C14, "PlaybackRequest 转换出正确的 mpv 标头") {
+    PlaybackRequest req;
+    req.url = "https://example.com/vod/abc.m3u8";
+    req.headers["User-Agent"] = "example-agent";
+    req.headers["Referer"] = "https://example.com/";
+
+    MpvRequestOptions opt = toMpvOptions(req, "", 10);
+    CHECK(opt.valid);
+    CHECK_MSG(opt.extra.find("user-agent=\"example-agent\"") != std::string::npos,
+              "缺 user-agent: " + opt.extra);
+    // 必须带 Referer 才能播放的站点，Referer 不得丢失
+    CHECK_MSG(opt.extra.find("referrer=\"https://example.com/\"") != std::string::npos,
+              "缺 referrer: " + opt.extra);
+    CHECK_MSG(opt.extra.find("network-timeout=10") != std::string::npos,
+              "缺 network-timeout: " + opt.extra);
+
+    // 自定义标头必须走 http-header-fields，否则 HLS 分片请求不携带
+    PlaybackRequest req2;
+    req2.url = "https://example.com/vod/def.m3u8";
+    req2.headers["User-Agent"] = "example-agent";
+    req2.headers["X-Custom-Token"] = "abc123";
+    MpvRequestOptions opt2 = toMpvOptions(req2, "", 10);
+    CHECK_MSG(opt2.extra.find("http-header-fields=") != std::string::npos,
+              "自定义标头未走 http-header-fields: " + opt2.extra);
+    CHECK_MSG(opt2.extra.find("X-Custom-Token") != std::string::npos,
+              "自定义标头丢失: " + opt2.extra);
+
+    // 大小写与别名都要识别
+    PlaybackRequest req3;
+    req3.url = "https://example.com/vod/g.m3u8";
+    req3.headers["user-agent"] = "lower-agent";
+    req3.headers["Referrer"] = "https://example.com/alias";
+    MpvRequestOptions opt3 = toMpvOptions(req3, "", 10);
+    CHECK_MSG(opt3.extra.find("user-agent=\"lower-agent\"") != std::string::npos,
+              "小写 user-agent 未识别: " + opt3.extra);
+    CHECK_MSG(opt3.extra.find("referrer=\"https://example.com/alias\"") !=
+                  std::string::npos,
+              "Referrer 别名未识别: " + opt3.extra);
+
+    // 缺 UA 时应有默认值，不能生成空的 user-agent=""
+    PlaybackRequest req4;
+    req4.url = "https://example.com/vod/h.mp4";
+    MpvRequestOptions opt4 = toMpvOptions(req4, "", 10);
+    CHECK(opt4.valid);
+    CHECK_MSG(opt4.extra.find("user-agent=\"Mozilla") != std::string::npos,
+              "缺 UA 时未填默认值: " + opt4.extra);
+    CHECK_MSG(opt4.extra.find("user-agent=\"\"") == std::string::npos,
+              "不应产生空 UA: " + opt4.extra);
+
+    // 代理：仅在非空时附加
+    MpvRequestOptions opt5 = toMpvOptions(req, "http://127.0.0.1:1080", 15);
+    CHECK_MSG(opt5.extra.find("http-proxy=\"http://127.0.0.1:1080\"") !=
+                  std::string::npos,
+              "代理未附加: " + opt5.extra);
+    MpvRequestOptions opt6 = toMpvOptions(req, "", 15);
+    CHECK_MSG(opt6.extra.find("http-proxy") == std::string::npos,
+              "空代理不应附加: " + opt6.extra);
+    CHECK_MSG(opt6.extra.find("network-timeout=15") != std::string::npos,
+              "超时未生效: " + opt6.extra);
+}
+
+// ---------------------------------------------------------------- C15
+// T8：非媒体 URL 不得转成 mpv extra；加载失败须给出可诊断原因
+TEST_CONTRACT(C15, "非媒体 URL 被拒绝且失败可诊断") {
+    // 网页 URL 必须被拒绝，避免黑屏但进度停滞的假成功
+    PlaybackRequest html;
+    html.url = "https://example.com/player?id=123";
+    html.headers["User-Agent"] = "example-agent";
+    MpvRequestOptions opt = toMpvOptions(html, "", 10);
+    CHECK(!opt.valid);
+    CHECK_MSG(opt.extra.empty(), "失败路径仍生成了 extra: " + opt.extra);
+    CHECK_MSG(!opt.describe.empty(), "失败路径缺少诊断描述");
+
+    // 空 URL
+    PlaybackRequest empty;
+    MpvRequestOptions opt2 = toMpvOptions(empty, "", 10);
+    CHECK(!opt2.valid);
+
+    // 带 query 的媒体 URL 仍应被接受
+    PlaybackRequest withQuery;
+    withQuery.url = "https://example.com/vod/a.mp4?token=x&t=1";
+    MpvRequestOptions opt3 = toMpvOptions(withQuery, "", 10);
+    CHECK(opt3.valid);
+
+    // 失败诊断文本必须包含错误码与脱敏后的 URL
+    const std::string desc = describeLoadFailure(
+        13, "https://example.com/vod/a.m3u8?token=SECRET123", "正在加载…");
+    CHECK_MSG(desc.find("mpv_error=13") != std::string::npos,
+              "诊断缺错误码: " + desc);
+    CHECK_MSG(desc.find("SECRET123") == std::string::npos,
+              "诊断泄漏 token: " + desc);
+    CHECK_MSG(desc.find("Referer") != std::string::npos,
+              "未提示可能原因: " + desc);
+
+    // 带引号的值必须被转义，否则会破坏 extra 字符串
+    PlaybackRequest quoted;
+    quoted.url = "https://example.com/vod/a.m3u8";
+    quoted.headers["X-Weird"] = "va\"lue\\here";
+    MpvRequestOptions opt4 = toMpvOptions(quoted, "", 10);
+    CHECK(opt4.valid);
+    CHECK_MSG(opt4.extra.find("va\\\"lue\\\\here") != std::string::npos,
+              "引号未转义: " + opt4.extra);
 }
 
 int main() {

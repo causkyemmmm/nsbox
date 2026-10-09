@@ -19,7 +19,8 @@ public:
     // 播放页（剧集列表 + 起始集 + 站点防盗链信息）
     static void openTVBoxPlayer(const std::string& title,
                                 const std::vector<std::pair<std::string, std::string>>& episodes,
-                                int index, const tvbox::TVBoxSite& site);
+                                int index, const tvbox::TVBoxSite& site,
+                                const std::vector<std::string>& sourceNames = {});
     // TVBox 搜索页
     static void openTVBoxSearch();
     // ========================

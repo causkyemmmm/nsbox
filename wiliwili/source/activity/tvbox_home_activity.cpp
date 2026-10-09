@@ -69,9 +69,19 @@ void TVBoxHomeActivity::loadCategories() {
     requesting = true;
     brls::async([this]() {
         auto& model = tvbox::AppModel::instance();
+        tvbox::VodProvider* provider = model.provider();
+        if (provider == nullptr) {
+            // 站点未适配：明确标识而非静默失败
+            const std::string label = tvbox::ProviderFactory::supportLabel(model.currentSite());
+            brls::sync([this, label]() {
+                requesting = false;
+                vodGrid->showError("当前站点尚未适配：" + label);
+            });
+            return;
+        }
         std::vector<tvbox::CmsCategory> cats;
-        bool ok = model.client().getCategories(cats);
-        std::string err = model.client().lastError();
+        bool ok = provider->getCategories(cats);
+        std::string err = provider->lastError();
         brls::sync([this, ok, cats = std::move(cats), err]() {
             requesting = false;
             if (!ok) {
@@ -97,9 +107,17 @@ void TVBoxHomeActivity::loadVodList(int catIndex, int page) {
     if (page == 1) vodGrid->showLoading();
     brls::async([this, tid, page]() {
         auto& model = tvbox::AppModel::instance();
+        tvbox::VodProvider* provider = model.provider();
+        if (provider == nullptr) {
+            brls::sync([this]() {
+                requesting = false;
+                vodGrid->showError("当前站点尚未适配");
+            });
+            return;
+        }
         tvbox::CmsVodPage result;
-        bool ok = model.client().getVodList(tid, page, result);
-        std::string err = model.client().lastError();
+        bool ok = provider->getVodList(tid, page, result);
+        std::string err = provider->lastError();
         brls::sync([this, ok, result = std::move(result), err, page]() {
             requesting = false;
             if (!ok) {
@@ -129,15 +147,39 @@ void TVBoxHomeActivity::showSiteDialog() {
     grid->estimatedRowSpace = 6;
     grid->registerCell("LabelCell", []() { return LabelCell::create(); });
 
+    // 已适配的站点排在前面并标注可用；未适配的排在后面并标明尚未适配。
+    // type 3 仅在有对应 provider 时才会出现在已适配分组中。
     std::vector<std::string> names;
-    for (const auto& s : model.sites()) names.push_back(s.name);
+    std::vector<int> indexes;
+    for (int i = 0; i < (int)model.sites().size(); ++i) {
+        const auto& entry = model.sites()[i];
+        if (entry.support != tvbox::SupportState::Supported) continue;
+        std::string label = entry.site.name;
+        if (i == model.siteIndex()) label += "  ✓";
+        names.push_back(label);
+        indexes.push_back(i);
+    }
+    const int playableCount = (int)names.size();
+    for (int i = 0; i < (int)model.sites().size(); ++i) {
+        const auto& entry = model.sites()[i];
+        if (entry.support == tvbox::SupportState::Supported) continue;
+        names.push_back(entry.site.name + "（尚未适配）");
+        indexes.push_back(i);
+    }
 
     auto* dialog = new brls::Dialog(grid);
-    grid->setDataSource(new DataSourceLabelList(names, [this, dialog](int index) {
+    grid->setDataSource(new DataSourceLabelList(names, [this, dialog, indexes,
+                                                          playableCount](int index) {
+        const int target = indexes[index];
         dialog->close();
         auto& m = tvbox::AppModel::instance();
-        if (index == m.siteIndex()) return;
-        m.setSiteIndex(index);
+        if (target == m.siteIndex()) return;
+        if (index >= playableCount) {
+            // 未适配站点不可选：明确告知原因
+            brls::Logger::warning("TVBox: site not adapted: {}", m.sites()[target].site.name);
+            return;
+        }
+        m.setSiteIndex(target);
         btnSite->setText("📺 " + m.currentSite().name);
         categories.clear();
         currentCat = 0;

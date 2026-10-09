@@ -125,9 +125,9 @@ void Intent::openTVBoxDetail(const tvbox::CmsVod& vod) {
 void Intent::openTVBoxPlayer(
     const std::string& title,
     const std::vector<std::pair<std::string, std::string>>& episodes, int index,
-    const tvbox::TVBoxSite& site) {
+    const tvbox::TVBoxSite& site, const std::vector<std::string>& sourceNames) {
     brls::Application::pushActivity(
-        new TVBoxPlayerActivity(title, episodes, index, site),
+        new TVBoxPlayerActivity(title, episodes, index, site, sourceNames),
         brls::TransitionAnimation::NONE);
 }
 

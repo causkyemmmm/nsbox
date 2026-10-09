@@ -45,9 +45,17 @@ void TVBoxSearchActivity::doSearch(int page) {
     std::string kw = keyword;
     brls::async([this, kw, page]() {
         auto& model = tvbox::AppModel::instance();
+        tvbox::VodProvider* provider = model.provider();
+        if (provider == nullptr) {
+            brls::sync([this]() {
+                requesting = false;
+                vodGrid->showError("当前站点尚未适配，无法搜索");
+            });
+            return;
+        }
         tvbox::CmsVodPage result;
-        bool ok = model.client().search(kw, page, result);
-        std::string err = model.client().lastError();
+        bool ok = provider->search(kw, page, result);
+        std::string err = provider->lastError();
         brls::sync([this, ok, result = std::move(result), err, page]() {
             requesting = false;
             if (!ok) {

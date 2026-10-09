@@ -29,9 +29,14 @@ void TVBoxDetailActivity::loadDetail() {
     std::string vodId = vod.vodId;
     brls::async([this, vodId]() {
         auto& model = tvbox::AppModel::instance();
+        tvbox::VodProvider* provider = model.provider();
+        if (provider == nullptr) {
+            brls::sync([this]() { desc->setText("当前站点尚未适配，无法加载详情"); });
+            return;
+        }
         tvbox::CmsVod detail;
-        bool ok = model.client().getDetail(vodId, detail);
-        std::string err = model.client().lastError();
+        bool ok = provider->getDetail(vodId, detail);
+        std::string err = provider->lastError();
         brls::sync([this, ok, detail = std::move(detail), err]() {
             if (!ok) {
                 desc->setText("详情加载失败: " + err);
@@ -59,7 +64,8 @@ void TVBoxDetailActivity::showEpisodes(int sourceIndex) {
     for (const auto& e : eps) names.push_back(e.first);
 
     episodesGrid->setDataSource(new DataSourceLabelList(names, [this](int index) {
+        // 传入线路名：resolvePlayback(flag, episodeId) 需要 flag 定位解析器
         Intent::openTVBoxPlayer(vod.vodName, vod.episodes[currentSource], index,
-                                tvbox::AppModel::instance().currentSite());
+                                tvbox::AppModel::instance().currentSite(), vod.playFrom);
     }));
 }

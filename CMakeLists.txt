@@ -361,6 +361,8 @@ if (BUILD_TVBOX_TESTS AND PLATFORM_DESKTOP)
         wiliwili/source/tvbox/vod_parser.cpp
         wiliwili/source/tvbox/maccms_client.cpp
         wiliwili/source/tvbox/maccms_provider.cpp
+        wiliwili/source/tvbox/provider_factory.cpp
+        wiliwili/source/tvbox/mpv_request.cpp
         wiliwili/source/tvbox/config_decoder.cpp
         wiliwili/source/tvbox/aes.c
     )

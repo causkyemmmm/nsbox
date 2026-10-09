@@ -12,7 +12,7 @@ namespace tvbox {
 
 namespace {
 
-std::string toLower(std::string s) {
+std::string veToLower(std::string s) {
     std::transform(s.begin(), s.end(), s.begin(),
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     return s;
@@ -37,9 +37,10 @@ size_t skipQuotedValue(const std::string& s, size_t from) {
     while (i < s.size() && (s[i] == ' ' || s[i] == '\t')) ++i;
     if (i >= s.size()) return i;
     if (!isQuote(s[i])) {
-        // 非引号值：读到分隔符为止
+        // 非引号值：读到分隔符为止。需涵盖 URL query 的 & 与 #，
+        // 否则 token=abc&sign=def 会在 abc 处截断，泄漏后续部分。
         while (i < s.size() && s[i] != ',' && s[i] != '}' && s[i] != '&' &&
-               s[i] != '\n')
+               s[i] != '?' && s[i] != '#' && s[i] != '\n')
             ++i;
         return i;
     }
@@ -88,13 +89,14 @@ bool atFieldStart(const std::string& lower, size_t i) {
     if (i == 0) return true;
     const char prev = lower[i - 1];
     return isQuote(prev) || prev == '{' || prev == ',' || prev == '&' ||
-           prev == ' ' || prev == '\n' || prev == '\t' || prev == '=';
+           prev == ' ' || prev == '\n' || prev == '\t' || prev == '=' ||
+           prev == '?' || prev == ';';
 }
 
 }  // namespace
 
 std::string redactSecrets(const std::string& text) {
-    const std::string lower = toLower(text);
+    const std::string lower = veToLower(text);
     std::string out;
     out.reserve(text.size());
     size_t i = 0;

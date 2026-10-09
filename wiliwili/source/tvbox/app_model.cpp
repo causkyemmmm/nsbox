@@ -7,6 +7,22 @@
 
 namespace tvbox {
 
+namespace {
+
+// 饭太硬等配置源失效时，按顺序重试的候选地址。
+// 工作单要求：配置加载失败时以 www 重试。
+std::vector<std::string> retryUrls(const std::string& primary) {
+    std::vector<std::string> urls{primary};
+    // http -> https 优先重试
+    if (primary.rfind("http://", 0) == 0)
+        urls.push_back("https://" + primary.substr(7));
+    else if (primary.rfind("https://", 0) == 0)
+        urls.push_back("http://" + primary.substr(8));
+    return urls;
+}
+
+}  // namespace
+
 AppModel& AppModel::instance() {
     static AppModel inst;
     return inst;
@@ -22,48 +38,97 @@ void AppModel::setSourceUrl(const std::string& url) {
     ProgramConfig::instance().setSettingItem(SettingItem::TVBOX_SOURCE_URL, url);
 }
 
+std::vector<int> AppModel::playableIndexes() const {
+    std::vector<int> out;
+    for (size_t i = 0; i < entries.size(); ++i)
+        if (entries[i].support == SupportState::Supported) out.push_back(static_cast<int>(i));
+    return out;
+}
+
+bool AppModel::isPlayable(int index) const {
+    if (index < 0 || index >= (int)entries.size()) return false;
+    return entries[index].support == SupportState::Supported;
+}
+
+bool AppModel::buildProvider(int index) {
+    provider_.reset();
+    if (index < 0 || index >= (int)entries.size()) return false;
+    provider_ = ProviderFactory::create(entries[index].site);
+    return provider_ != nullptr;
+}
+
 bool AppModel::loadSource() {
     error.clear();
-    cms.clear();
-    cmsClient.reset();
+    entries.clear();
+    provider_.reset();
     siteIdx = 0;
 
-    std::string url = sourceUrl();
-    if (!source.load(url)) {
-        error = source.lastError();
+    const std::string url = sourceUrl();
+    bool loaded = source.load(url);
+    if (!loaded) {
+        // 配置加载失败时按候选地址重试（如 http/https 互试）
+        for (const auto& candidate : retryUrls(url)) {
+            if (candidate == url) continue;
+            if (source.load(candidate)) {
+                loaded = true;
+                break;
+            }
+        }
+        if (!loaded) {
+            error = source.lastError();
+            return false;
+        }
+    }
+    // 保留全部站点，未适配的仅作显示并标注
+    for (const auto& s : source.allSites()) {
+        SiteEntry entry;
+        entry.site = s;
+        entry.support = ProviderFactory::supportOf(s);
+        entries.push_back(std::move(entry));
+    }
+
+    if (entries.empty()) {
+        error = "配置中没有站点";
         return false;
     }
-    cms = source.cmsSites();
-    if (cms.empty()) {
-        // 统计站点类型分布，给出更有用的提示
+
+    // 定位第一个已适配的站点作为当前站点
+    auto playable = playableIndexes();
+    if (playable.empty()) {
         int type3 = 0, other = 0;
-        for (const auto& s : source.allSites()) {
-            if (s.type == 3) type3++;
-            else if (s.type != 0 && s.type != 1) other++;
+        for (const auto& e : entries) {
+            if (e.site.type == 3) type3++;
+            else if (!e.site.isCms()) other++;
         }
         if (type3 > 0 && other == 0)
-            error = "该源共 " + std::to_string(source.allSites().size()) +
-                    " 个站点，全部为 type 3（jar/JS 爬虫），当前客户端仅支持 type 0/1 直连接口，暂无法播放。"
+            error = "该源共 " + std::to_string(entries.size()) +
+                    " 个站点，全部为 type 3（jar/JS 爬虫），当前版本尚未适配任何 type 3 站点。"
                     "请改用包含 MacCMS 站点的源（如 dxawi）。";
         else
-            error = "配置中没有可直连的 MacCMS 站点 (type 0/1)";
+            error = "配置中没有已适配的站点（type 0/1 可用；type 3 需对应 provider）";
         return false;
     }
-    cmsClient = std::make_unique<MacCMSClient>(cms[0]);
-    loadedUrl = url;
+
+    siteIdx = playable.front();
+    buildProvider(siteIdx);
+    loadedUrl = sourceUrl();
     return true;
 }
 
 bool AppModel::needsReload() const { return !ready() || loadedUrl != sourceUrl(); }
 
 const std::string& AppModel::lastError() const {
-    return error.empty() ? cmsClient ? cmsClient->lastError() : error : error;
+    if (!error.empty()) return error;
+    if (provider_) return provider_->lastError();
+    return error;
 }
 
 void AppModel::setSiteIndex(int idx) {
-    if (idx < 0 || idx >= (int)cms.size() || idx == siteIdx) return;
+    if (idx < 0 || idx >= (int)entries.size() || idx == siteIdx) return;
+    // 未适配的站点不可选：type 3 仅在有对应 provider 时才允许切换
+    if (entries[idx].support != SupportState::Supported) return;
     siteIdx = idx;
-    cmsClient = std::make_unique<MacCMSClient>(cms[siteIdx]);
+    buildProvider(siteIdx);
 }
 
 }  // namespace tvbox
